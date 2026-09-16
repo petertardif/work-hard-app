@@ -1,56 +1,119 @@
-# Welcome to your Expo app 👋
+# Work Hard
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A 75-Hard-style accountability tracker. One active list of up to **25** daily tasks,
+run for N consecutive days. Every task must be done before the day ends. Miss one
+task on one day and the run is over — back to day 1.
 
-## Get started
+Built on Expo SDK 57 (React Native 0.86, expo-router) with Supabase for auth and data.
 
-1. Install dependencies
+## Setup
 
-   ```bash
-   npm install
-   ```
+**1. Node.** Expo SDK 57 requires Node `>= 20.19.4`. Check with `node -v` and upgrade
+if needed — the dev server warns and can misbehave on older versions.
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+**2. Install.**
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+**3. Supabase.** Create a project, then apply `supabase/migrations/0001_init.sql`
+by hand in the SQL editor (Dashboard → SQL Editor → New query → paste → Run).
 
-### Other setup steps
+**4. Credentials.**
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```bash
+cp .env.example .env
+```
 
-## Learn more
+Fill in `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` from
+Project Settings. Only ever the **anon** key — `EXPO_PUBLIC_` variables are inlined
+into the shipped bundle. Row level security is what actually guards the data.
 
-To learn more about developing your project with Expo, look at the following resources:
+Without these the app renders a setup notice instead of crashing.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+**5. Run.**
 
-## Join the community
+```bash
+npm start        # then press i for iOS, a for Android
+npm test         # run-logic unit tests
+npm run typecheck
+```
 
-Join our community of developers creating universal apps.
+Everything built so far works in Expo Go.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## How it works
+
+### The day boundary
+
+The hard part of this app. Three rules the code holds to:
+
+- **Progress is stored as calendar dates, never as a day counter.** `dayNumber` is
+  always derived from `startDate`. A stored counter drifts permanently the first
+  time a clock or timezone moves.
+- **The server decides.** `adjudicate_runs()` (Postgres) runs on every launch and
+  foreground, judging against server `now()` in the run's own captured timezone.
+  `src/lib/run-logic.ts` mirrors it exactly, but only to render an optimistic
+  result while offline — the server's verdict always wins.
+- **A run fails on the day it was missed**, not the day you noticed. Skip Tuesday,
+  open the app on Friday, and the run reports a Tuesday failure.
+
+The client also tracks its offset from server time (`server_now()` RPC), so winding
+the device clock does not move the app's idea of today.
+
+All of this lives in pure functions with 38 unit tests covering DST transitions,
+leap years, timezone travel, and clock tampering. Start there if you change anything
+about dates.
+
+### Offline
+
+Checking off a task works with no signal. TanStack Query holds all server state,
+persisted to AsyncStorage; mutations are declared with a `mutationKey` whose function
+is registered in `src/lib/query-client.ts`, which is what lets a write survive the app
+being killed and replay on reconnect. `completions` is keyed on
+`(run_id, on_date, task_id)`, so a replayed write is a harmless upsert.
+
+### Snapshots
+
+`runs.tasks` is a frozen copy of the list at activation. Editing a list later never
+rewrites the history of a run that used it.
+
+## Layout
+
+```
+src/
+  app/                    expo-router routes
+    (auth)/sign-in        design 1e
+    (app)/index           Today — design 2a
+    (app)/lists/          library 2c, editor 2d, duration 1g
+    (app)/settings        design 2e
+  components/             Screen, ui-kit, TaskRow, Glyph, ListEditor, ColdOpen
+  constants/theme.ts      colors, type scale, spacing
+  constants/limits.ts     domain limits, free of RN imports so logic can use them
+  hooks/use-work-hard.ts  TanStack Query bindings
+  lib/run-logic.ts        pure date + adjudication logic  ← the tested core
+  lib/api.ts              every Supabase call
+supabase/migrations/      apply by hand in the SQL editor
+```
+
+## Not done yet
+
+- **Apple / Google sign-in** — needs a development build (`npx expo run:ios`) and,
+  on device, a paid Apple Developer account. Buttons render but are inert.
+- **Failure and victory screens** — not in the design bundle yet; Today shows a
+  plain interim banner so the state is never silently wrong.
+- **Onboarding** — not designed.
+- **Settings editing** — timezone, day-ends-at and reminders display but are read-only.
+- **Reminders** — `expo-notifications` not wired up.
+- **Account deletion** — needs a server endpoint with the service-role key.
+
+## Deviations from the mockups
+
+- **Today gained a nav row.** No mockup shows a way off the Today screen. A slim
+  `LISTS` / `SETTINGS` row in the design's own mono style makes them reachable.
+- **The cold open is ~2.3s, not 8.4s.** The design file's keyframes read as a canvas
+  demo loop; nobody should wait that long to see their tasks. Same beats, compressed.
+  Tune `GLYPH_MS` / `WORD_MS` in `src/components/cold-open.tsx`.
+- **The editor uses ↑/↓ controls, not drag handles.** Same capability, much less
+  machinery. Worth revisiting if reordering turns out to matter.
+- **The task cap is 25, not the mockup's 10.**
