@@ -3,7 +3,7 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
-import { Button, Card, MonoLabel, SectionHeader } from '@/components/ui-kit';
+import { Button, Card, InfoPopover, MonoLabel, SectionHeader } from '@/components/ui-kit';
 import { Gutter, Spacing } from '@/constants/theme';
 import {
   useActiveRun,
@@ -36,14 +36,29 @@ export default function ListsScreen() {
 
       {isLoading ? <MonoLabel style={styles.section}>Loading…</MonoLabel> : null}
 
-      {activeRun ? <ActiveSection /> : null}
+      {/* The header is always rendered, not just when a run exists — the rule it
+          explains matters most to someone who has not started one yet. */}
+      <View style={[styles.section, styles.sectionWithInfo]}>
+        <MonoLabel small>Active</MonoLabel>
+        <InfoPopover
+          accessibilityLabel="About active lists"
+          text="Only one list can be active at a time. Activating a list starts it at day 1."
+        />
+      </View>
+      {activeRun ? (
+        <ActiveSection />
+      ) : (
+        <ThemedText type="monoValue" themeColor="textSecondary" style={styles.empty}>
+          No active run.
+        </ThemedText>
+      )}
 
       <MonoLabel small style={styles.section}>
         Inactive
       </MonoLabel>
       {inactive.length === 0 ? (
         <ThemedText type="monoValue" themeColor="textSecondary" style={styles.empty}>
-          {all.length === 0 ? 'No lists yet. Tap + New to build one.' : 'Nothing inactive.'}
+          {all.length === 0 ? 'No lists yet. Tap + New to build one.' : 'No inactive lists.'}
         </ThemedText>
       ) : (
         <View style={styles.stack}>
@@ -63,10 +78,6 @@ export default function ListsScreen() {
           </View>
         </>
       ) : null}
-
-      <ThemedText type="small" themeColor="textSecondary" style={styles.footnote}>
-        Only one list can be active. Activating a list starts it at day 1.
-      </ThemedText>
     </Screen>
   );
 }
@@ -92,9 +103,6 @@ function ActiveSection() {
 
   return (
     <>
-      <MonoLabel small style={styles.section}>
-        Active
-      </MonoLabel>
       <Card emphasised>
         <View style={styles.cardHead}>
           <ThemedText type="cardTitle">{run.list_name}</ThemedText>
@@ -197,6 +205,11 @@ const styles = StyleSheet.create({
     marginTop: Spacing.five,
     marginBottom: Spacing.two,
   },
+  sectionWithInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
   stack: {
     gap: Spacing.two,
   },
@@ -243,8 +256,5 @@ const styles = StyleSheet.create({
     marginTop: 3,
     opacity: 0.7,
     fontSize: 12,
-  },
-  footnote: {
-    marginTop: Spacing.five,
   },
 });

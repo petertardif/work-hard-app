@@ -19,6 +19,8 @@ export const Colors = {
     textSecondary: '#60646C',
     border: '#E0E1E6',
     borderStrong: '#C9CBD1',
+    danger: '#FF3B30',
+    accent: '#7C5CFF',
   },
   dark: {
     text: '#ffffff',
@@ -30,6 +32,22 @@ export const Colors = {
     textSecondary: '#B0B4BA',
     border: '#212225',
     borderStrong: '#2E3135',
+    /** iOS system red. Destructive actions and error text. */
+    danger: '#FF3B30',
+    /**
+     * The one non-greyscale accent, used for the on-state of switches.
+     *
+     * Chosen for contrast against a **white** foreground, not for how it looks
+     * on black. A switch thumb is white and cannot be reliably re-tinted, so an
+     * accent sitting behind one needs >= 3:1 against `#FFFFFF`. Violet measures
+     * 4.35:1. The brighter options that look livelier on black all fail that
+     * test — volt green 1.32, lime 1.51, amber 1.73, teal 1.86 — and would make
+     * the thumb vanish, which is the bug this replaced.
+     *
+     * `src/lib/contrast.test.ts` enforces the floor. Do not change this value
+     * without running `npm test`.
+     */
+    accent: '#7C5CFF',
   },
 } as const;
 
@@ -84,14 +102,29 @@ export const Spacing = {
 /**
  * The mockups express tracking in `em`; React Native's `letterSpacing` is
  * absolute points, so these are pre-multiplied against their own font size.
+ *
+ * A warning learned the hard way: the mockups' CSS line-heights cannot be
+ * transcribed literally. In CSS a glyph taller than its line box overflows and
+ * still paints; React Native *clips* to the line box. So the design's
+ * `line-height: .8` on a 104px numeral silently cut the top off every digit.
+ * Line height here is never below font size — tightness is recovered with
+ * margins at the call site instead.
  */
 export const Typography = {
-  /** The giant day numeral on Today. 104px / .8 / -.05em */
+  /**
+   * The giant day numeral on Today.
+   *
+   * The design asks for `line-height: .8` (83px). That clips in React Native,
+   * so the line box is full height and `styles.dayNumber` in
+   * `app/(app)/index.tsx` pulls the surrounding margins in to restore the
+   * optical spacing.
+   */
   display: {
     fontFamily: FontFamily.bold,
     fontSize: 104,
-    lineHeight: 83,
+    lineHeight: 104,
     letterSpacing: -5.2,
+    includeFontPadding: false,
   },
   /** "Lists", "Settings". 32px / 600 / -.02em */
   screenTitle: {
@@ -134,6 +167,26 @@ export const Typography = {
   monoValue: {
     fontFamily: FontFamily.monoMedium,
     fontSize: 13,
+  },
+
+  /**
+   * Text inside a TextInput.
+   *
+   * Identical to `body`/`cardTitle` but with **no `lineHeight`** — an explicit
+   * line height on a TextInput crops Spline Sans's descenders, so `p`, `g`, `y`
+   * and `q` lose their tails. Height comes from the field's own padding.
+   *
+   * Rule: never put `lineHeight` on a TextInput style.
+   */
+  input: {
+    fontFamily: FontFamily.medium,
+    fontSize: 16,
+    includeFontPadding: false,
+  },
+  inputLarge: {
+    fontFamily: FontFamily.semibold,
+    fontSize: 20,
+    includeFontPadding: false,
   },
 } as const;
 

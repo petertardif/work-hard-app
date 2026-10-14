@@ -99,7 +99,12 @@ export function ColdOpen({ onDone }: { onDone: () => void }) {
               ],
             },
           ]}>
-          <ThemedText style={styles.word}>{'Work\nHard'}</ThemedText>
+          {/* Two Texts rather than one with a newline: each line needs a line
+              box at least as tall as the font, or React Native clips the tops
+              of the letters. The tight wordmark leading the design asks for
+              comes from pulling the second line up instead. */}
+          <ThemedText style={styles.word}>Work</ThemedText>
+          <ThemedText style={[styles.word, styles.wordSecondLine]}>Hard</ThemedText>
         </Animated.View>
       </View>
     </View>
@@ -136,10 +141,18 @@ const styles = StyleSheet.create({
   word: {
     fontFamily: FontFamily.bold,
     fontSize: 44,
-    lineHeight: 41,
+    // Font size plus a small cushion for Spline Sans Bold's ascenders. The
+    // design's `line-height: .92` (41px) is below the font size and clips.
+    lineHeight: 46,
     letterSpacing: -1.32,
     color: Colors.dark.text,
     textTransform: 'uppercase',
     textAlign: 'center',
+    includeFontPadding: false,
+  },
+  // 46 - 5 restores the design's 41px visual leading without starving either
+  // line's box.
+  wordSecondLine: {
+    marginTop: -5,
   },
 });

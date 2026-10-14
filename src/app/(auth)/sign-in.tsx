@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   heading: { marginTop: 56, lineHeight: 38 },
   sub: { marginTop: Spacing.two },
   fields: { marginTop: Spacing.five, gap: Spacing.two },
-  error: { marginTop: Spacing.three, color: '#FF6B6B' },
+  error: { marginTop: Spacing.three, color: Colors.dark.danger },
   notice: { marginTop: Spacing.three },
   submit: { marginTop: Spacing.three },
   switcher: { marginTop: Spacing.three, textAlign: 'center' },

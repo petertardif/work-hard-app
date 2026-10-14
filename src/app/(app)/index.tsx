@@ -1,8 +1,9 @@
 import { Link, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { GlyphKind } from '@/components/glyph';
+import { IconStroke, List, Settings } from '@/components/icons';
 import { Screen, Spacer } from '@/components/screen';
 import { TaskRow } from '@/components/task-row';
 import { ThemedText } from '@/components/themed-text';
@@ -43,13 +44,15 @@ function NavRow() {
   return (
     <View style={styles.navRow}>
       <Link href="/lists" asChild>
-        <Pressable hitSlop={8}>
-          <MonoLabel>Lists</MonoLabel>
+        {/* The icon replaced the word, so the label has to be spelled out here
+            or a screen reader is left with nothing to announce. */}
+        <Pressable hitSlop={12} accessibilityRole="button" accessibilityLabel="Lists">
+          <List size={20} color={Colors.dark.textSecondary} strokeWidth={IconStroke} />
         </Pressable>
       </Link>
       <Link href="/settings" asChild>
-        <Pressable hitSlop={8}>
-          <MonoLabel>Settings</MonoLabel>
+        <Pressable hitSlop={12} accessibilityRole="button" accessibilityLabel="Settings">
+          <Settings size={20} color={Colors.dark.textSecondary} strokeWidth={IconStroke} />
         </Pressable>
       </Link>
     </View>
@@ -68,28 +71,37 @@ function ActiveRun({ view, glyph }: { view: TodayView; glyph: GlyphKind }) {
 
   return (
     <>
+      {/* Fixed band: the day numeral stays put while the tasks scroll under it. */}
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerDay}>
           <MonoLabel style={styles.dayLabel}>Day</MonoLabel>
-          <ThemedText type="display">{view.dayNumber}</ThemedText>
+          <ThemedText type="display" style={styles.dayNumber}>
+            {view.dayNumber}
+          </ThemedText>
         </View>
         <View style={styles.headerMeta}>
           <MonoLabel style={styles.headerMetaText}>
             {`of ${run.duration_days} days`}
           </MonoLabel>
-          <MonoLabel style={styles.headerMetaText}>{run.list_name}</MonoLabel>
+          <MonoLabel style={styles.headerMetaText} numberOfLines={2}>
+            {run.list_name}
+          </MonoLabel>
         </View>
       </View>
 
       {over ? <RunOverBanner view={view} /> : null}
 
-      <View style={styles.tasks}>
+      {/* Scrolling band. A list can hold 25 tasks; without this the tail of a
+          long list is simply unreachable on a smaller phone. */}
+      <ScrollView
+        style={styles.tasks}
+        contentContainerStyle={styles.tasksContent}
+        showsVerticalScrollIndicator={false}>
         <TaskList view={view} glyph={glyph} disabled={over} />
         <View style={styles.tasksEnd} />
-      </View>
+      </ScrollView>
 
-      <Spacer />
-
+      {/* Pinned band: the two things you check most stay visible while scrolling. */}
       <View style={styles.footer}>
         <ThemedText type="body" style={styles.footerSummary}>
           {summary}
@@ -172,7 +184,7 @@ function NoActiveRun() {
   return (
     <>
       <Spacer />
-      <ThemedText type="screenTitle">No run in progress.</ThemedText>
+      <ThemedText type="screenTitle">Ready to start?</ThemedText>
       <ThemedText type="body" themeColor="textSecondary" style={styles.emptyBody}>
         Build a list of daily tasks, choose how many consecutive days you want to hold
         it, and begin.
@@ -209,18 +221,41 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'space-between',
   },
+  headerDay: {
+    // The numeral is a fixed 104px; it must never be the thing that shrinks.
+    flexShrink: 0,
+  },
   dayLabel: {
-    marginBottom: Spacing.half,
+    // Clearance between the label and the numeral below it. This is the knob to
+    // turn if the two ever crowd each other again.
+    marginBottom: 6,
+  },
+  dayNumber: {
+    // No negative top margin. An earlier attempt to reproduce the design's
+    // `line-height: .8` with `marginTop: -10` pulled the numeral up *through*
+    // the label — the 104px line box already sits the digits well below its own
+    // top edge, so there is nothing left to claw back.
+    //
+    // The negative bottom margin is fine: it only tightens the gap down to the
+    // task list, which has 44px of its own margin to give.
+    marginBottom: -10,
   },
   headerMeta: {
     alignItems: 'flex-end',
     paddingBottom: 6,
+    // A long list name wraps or truncates rather than crowding the numeral.
+    flexShrink: 1,
+    marginLeft: Spacing.three,
   },
   headerMetaText: {
     textAlign: 'right',
   },
   tasks: {
+    flex: 1,
     marginTop: 44,
+  },
+  tasksContent: {
+    paddingBottom: Spacing.three,
   },
   tasksEnd: {
     borderTopWidth: 1,
