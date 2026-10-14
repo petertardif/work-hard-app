@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button, MonoLabel } from '@/components/ui-kit';
-import { Colors, FontFamily, Gutter, Spacing } from '@/constants/theme';
+import { Colors, FontFamily, Spacing } from '@/constants/theme';
 import { deviceTimezone } from '@/constants/timezones';
 import { useProfile, useQuotes } from '@/hooks/use-work-hard';
 import { normaliseDayEndsAt, todayKey } from '@/lib/api';
@@ -119,9 +119,28 @@ export function DailyQuoteGate({ userId }: { userId: string | null }) {
   return <QuoteOverlay quote={quote} onDismiss={dismiss} />;
 }
 
+/**
+ * Space the overlay reserves for everything that is not the quote itself:
+ * the dismiss button, the attribution line, and enough air that the text never
+ * crowds either. Subtracted from the screen before the type size is chosen.
+ */
+const RESERVED_HEIGHT = 56 + 24 + 44 + 72;
+
+/** Horizontal breathing room. Wider than the app's usual gutter — this is a
+ *  reading surface, not a list. */
+const QUOTE_GUTTER = 32;
+
 function QuoteOverlay({ quote, onDismiss }: { quote: Quote; onDismiss: () => void }) {
   const insets = useSafeAreaInsets();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const fade = useRef(new Animated.Value(0)).current;
+
+  // Measured against the real screen rather than assumed, so the same quote is
+  // as large as it can be on any device without ever running off the page.
+  const availableWidth = screenWidth - QUOTE_GUTTER * 2;
+  const availableHeight =
+    screenHeight - insets.top - insets.bottom - Spacing.four * 2 - RESERVED_HEIGHT;
+  const scale = quoteTypeScale(quote.text, availableWidth, availableHeight);
 
   // The backdrop is opaque from the first frame — that is what prevents the
   // flash — while the words ease in, so the handoff from the cold open's
@@ -170,7 +189,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     // Opaque, and above the Stack it covers.
     backgroundColor: Colors.dark.background,
-    paddingHorizontal: Gutter.wide,
+    paddingHorizontal: QUOTE_GUTTER,
     zIndex: 50,
   },
   spacerTop: {

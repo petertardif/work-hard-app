@@ -80,9 +80,16 @@ export default function SettingsScreen() {
         <ExportRow />
       </Card>
 
-      <Card style={[styles.grouped, styles.danger]}>
-        <DetailRow
+      {/*
+        Side by side, but deliberately not adjacent: a wide gap and two different
+        treatments, because the right-hand one is irreversible and the left-hand
+        one is routine. A thumb should not be able to slip from one to the other.
+      */}
+      <View style={styles.accountActions}>
+        <Button
           label="Sign out"
+          variant="outline"
+          fill
           onPress={() =>
             Alert.alert('Sign out?', 'Your streak stays on the server.', [
               { text: 'Cancel', style: 'cancel' },
@@ -90,9 +97,8 @@ export default function SettingsScreen() {
             ])
           }
         />
-        <CardDivider />
-        <DeleteAccountRow />
-      </Card>
+        <DeleteAccountButton />
+      </View>
 
       <MonoLabel small style={styles.version}>
         {`Work Hard ${Constants.expoConfig?.version ?? '1.0.0'}`}
@@ -365,7 +371,7 @@ function QuoteManagementRow() {
  * undone, but no further than two: Apple also expects deletion to be reachable
  * rather than buried.
  */
-function DeleteAccountRow() {
+function DeleteAccountButton() {
   const { deleteAccount } = useAuth();
   const [busy, setBusy] = useState(false);
 
@@ -404,9 +410,12 @@ function DeleteAccountRow() {
   }
 
   return (
-    <DetailRow
+    <Button
       label={busy ? 'Deleting\u2026' : 'Delete account'}
-      onPress={busy ? undefined : confirm}
+      variant="danger"
+      fill
+      disabled={busy}
+      onPress={confirm}
     />
   );
 }
@@ -509,8 +518,12 @@ const styles = StyleSheet.create({
   lockedNote: {
     marginTop: Spacing.two,
   },
-  danger: {
+  accountActions: {
     marginTop: Spacing.five,
+    flexDirection: 'row',
+    // Wider than the usual Spacing.two between sibling buttons. The extra
+    // separation is the point: one of these cannot be undone.
+    gap: Spacing.four,
   },
   glyphRow: {
     flexDirection: 'row',

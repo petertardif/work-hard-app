@@ -10,8 +10,9 @@ import { Colors, FontFamily } from '@/constants/theme';
  *
  * The mockup's keyframes run over 8.4s, which reads as a canvas demo loop
  * rather than a real cold open — nobody should wait that long to see their
- * tasks. The same beats are compressed into ~2.3s here. Adjust `GLYPH_MS` and
- * `WORD_MS` to taste.
+ * tasks. The same beats are compressed here, then the wordmark holds for about
+ * three seconds before handing over. Adjust `GLYPH_MS`, `WORD_MS` and
+ * `WORD_HOLD_MS` to taste.
  *
  * Uses React Native's core Animated rather than Reanimated so it carries no
  * Babel-plugin dependency; it is a plain opacity/scale sequence on the native
@@ -20,6 +21,14 @@ import { Colors, FontFamily } from '@/constants/theme';
 const SEQUENCE: GlyphKind[] = ['pickaxe', 'ant', 'sledge'];
 const GLYPH_MS = { in: 180, hold: 240, out: 180 };
 const WORD_MS = 500;
+/**
+ * How long the wordmark stays up once it has faded in.
+ *
+ * With the 500ms fade before it, that is one second of “Work Hard” on screen.
+ * Without any hold the sequence called `onDone` the instant the fade finished,
+ * so the wordmark was gone almost as soon as it arrived.
+ */
+const WORD_HOLD_MS = 500;
 
 export function ColdOpen({ onDone }: { onDone: () => void }) {
   const glyphValues = useRef(SEQUENCE.map(() => new Animated.Value(0))).current;
@@ -50,6 +59,7 @@ export function ColdOpen({ onDone }: { onDone: () => void }) {
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
+      Animated.delay(WORD_HOLD_MS),
     ]);
 
     animation.start(({ finished }) => {

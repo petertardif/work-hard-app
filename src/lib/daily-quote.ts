@@ -76,20 +76,64 @@ export function quoteStorageKey(userId: string): string {
 }
 
 /**
- * Type size for a quote, stepped down as it gets longer.
+ * Largest type size at which a quote still fits the space it is given.
  *
- * The overlay is a single calm page with no scrolling, so a long passage has to
- * fit rather than overflow. At 27px roughly 35 characters fit per line, and an
- * iPhone 12 affords about 300px of text height — so anything past ~90
- * characters needs to come down to stay on one screen.
+ * Fixed tiers by character count were the previous approach, and they could not
+ * be both large and safe: a size that suited an iPhone 12 overflowed a smaller
+ * screen, and a size safe everywhere was needlessly small on a big one. This
+ * measures against the actual box instead, so short quotes get genuinely large
+ * type and long ones step down only as far as they must.
  *
- * `MaxQuoteLength` is enforced in the input, so there is no tier beyond this.
+ * `MaxQuoteLength` caps input, so there is always some size in the ladder that
+ * fits.
  */
 export const MaxQuoteLength = 300;
 
-export function quoteTypeScale(text: string): { fontSize: number; lineHeight: number } {
+/** Candidate sizes, largest first. The first one that fits wins. */
+const QUOTE_SIZES = [38, 34, 30, 26, 23, 20, 18, 16] as const;
+
+/** Leading as a multiple of font size. Always > 1, or glyphs clip. */
+const LINE_HEIGHT_RATIO = 1.38;
+
+/**
+ * Average glyph advance as a fraction of font size, for Spline Sans Medium.
+ *
+ * Deliberately a slight overestimate: erring high predicts more lines than
+ * actually render, so the result is a size that definitely fits rather than one
+ * that just about might.
+ */
+const AVG_CHAR_RATIO = 0.54;
+
+export type QuoteTypeScale = {
+  fontSize: number;
+  lineHeight: number;
+};
+
+/**
+ * Picks the largest size whose wrapped height fits `availableHeight`.
+ *
+ * The line estimate adds one line of slack because words do not break
+ * mid-word — real wrapping always costs at least as many lines as dividing
+ * characters by characters-per-line suggests, and usually one more.
+ */
+export function quoteTypeScale(
+  text: string,
+  availableWidth: number,
+  availableHeight: number,
+): QuoteTypeScale {
   const length = text.trim().length;
-  if (length <= 90) return { fontSize: 27, lineHeight: 38 };
-  if (length <= 180) return { fontSize: 22, lineHeight: 31 };
-  return { fontSize: 18, lineHeight: 26 };
+
+  for (const fontSize of QUOTE_SIZES) {
+    const lineHeight = Math.round(fontSize * LINE_HEIGHT_RATIO);
+    const charsPerLine = Math.max(1, Math.floor(availableWidth / (fontSize * AVG_CHAR_RATIO)));
+    const lines = Math.ceil(length / charsPerLine) + 1;
+
+    if (lines * lineHeight <= availableHeight) {
+      return { fontSize, lineHeight };
+    }
+  }
+
+  // Nothing fit — hand back the smallest rather than something that overflows.
+  const smallest = QUOTE_SIZES[QUOTE_SIZES.length - 1];
+  return { fontSize: smallest, lineHeight: Math.round(smallest * LINE_HEIGHT_RATIO) };
 }

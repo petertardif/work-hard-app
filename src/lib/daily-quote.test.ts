@@ -106,34 +106,71 @@ describe('quoteStorageKey', () => {
 });
 
 describe('quoteTypeScale', () => {
-  const words = (n: number) => 'x'.repeat(n);
+  // Real device boxes, after the overlay's gutters and reserved space.
+  const IPHONE_SE = { w: 375 - 64, h: 667 - 47 - 34 - 48 - 196 };
+  const IPHONE_12 = { w: 390 - 64, h: 844 - 47 - 34 - 48 - 196 };
+  const IPHONE_MAX = { w: 430 - 64, h: 932 - 59 - 34 - 48 - 196 };
 
-  it('uses the largest size for a short quote', () => {
-    expect(quoteTypeScale(words(40)).fontSize).toBe(27);
-    expect(quoteTypeScale(words(90)).fontSize).toBe(27);
+  const chars = (n: number) => 'x'.repeat(n);
+
+  /** Mirrors the estimate the implementation uses, to assert the result fits. */
+  function predictedHeight(text: string, width: number, scale: { fontSize: number; lineHeight: number }) {
+    const perLine = Math.max(1, Math.floor(width / (scale.fontSize * 0.54)));
+    return (Math.ceil(text.trim().length / perLine) + 1) * scale.lineHeight;
+  }
+
+  it('gives a short quote genuinely large type', () => {
+    const scale = quoteTypeScale(chars(50), IPHONE_12.w, IPHONE_12.h);
+    // The old fixed tiers topped out at 27.
+    expect(scale.fontSize).toBeGreaterThan(27);
   });
 
-  it('steps down once past the one-screen threshold', () => {
-    expect(quoteTypeScale(words(91)).fontSize).toBe(22);
-    expect(quoteTypeScale(words(180)).fontSize).toBe(22);
+  it('never overflows the box it was given, at any length or screen', () => {
+    // The property that matters. Everything else is taste.
+    for (const box of [IPHONE_SE, IPHONE_12, IPHONE_MAX]) {
+      for (let length = 1; length <= MaxQuoteLength; length += 7) {
+        const text = chars(length);
+        const scale = quoteTypeScale(text, box.w, box.h);
+        expect(predictedHeight(text, box.w, scale)).toBeLessThanOrEqual(box.h);
+      }
+    }
   });
 
-  it('steps down again for a long passage', () => {
-    expect(quoteTypeScale(words(181)).fontSize).toBe(18);
-    expect(quoteTypeScale(words(MaxQuoteLength)).fontSize).toBe(18);
-  });
-
-  it('keeps line height above font size at every tier', () => {
-    // The clipping bug that bit the day numeral and the wordmark: a line box
-    // shorter than the font crops the glyphs.
-    for (const length of [10, 90, 91, 180, 181, MaxQuoteLength]) {
-      const scale = quoteTypeScale(words(length));
+  it('never returns a line height at or below the font size', () => {
+    // The clipping bug that has bitten this project twice already.
+    for (let length = 1; length <= MaxQuoteLength; length += 11) {
+      const scale = quoteTypeScale(chars(length), IPHONE_SE.w, IPHONE_SE.h);
       expect(scale.lineHeight).toBeGreaterThan(scale.fontSize);
     }
   });
 
+  it('never grows as a quote gets longer', () => {
+    let previous = Infinity;
+    for (let length = 10; length <= MaxQuoteLength; length += 10) {
+      const { fontSize } = quoteTypeScale(chars(length), IPHONE_12.w, IPHONE_12.h);
+      expect(fontSize).toBeLessThanOrEqual(previous);
+      previous = fontSize;
+    }
+  });
+
+  it('gives a bigger screen type at least as large as a smaller one', () => {
+    for (const length of [40, 120, 220, MaxQuoteLength]) {
+      const small = quoteTypeScale(chars(length), IPHONE_SE.w, IPHONE_SE.h);
+      const large = quoteTypeScale(chars(length), IPHONE_MAX.w, IPHONE_MAX.h);
+      expect(large.fontSize).toBeGreaterThanOrEqual(small.fontSize);
+    }
+  });
+
+  it('degrades to the smallest size rather than overflowing an absurd box', () => {
+    const scale = quoteTypeScale(chars(MaxQuoteLength), 120, 60);
+    expect(scale.fontSize).toBe(16);
+    expect(scale.lineHeight).toBeGreaterThan(scale.fontSize);
+  });
+
   it('ignores surrounding whitespace when measuring', () => {
-    expect(quoteTypeScale(`   ${words(40)}   `).fontSize).toBe(27);
+    const bare = quoteTypeScale(chars(60), IPHONE_12.w, IPHONE_12.h);
+    const padded = quoteTypeScale(`   ${chars(60)}   `, IPHONE_12.w, IPHONE_12.h);
+    expect(padded).toEqual(bare);
   });
 });
 

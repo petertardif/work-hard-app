@@ -411,12 +411,16 @@ export function Field({ large, style, ...rest }: FieldProps) {
 // Buttons
 // ---------------------------------------------------------------------------
 
-export type ButtonVariant = 'primary' | 'outline' | 'quiet';
+export type ButtonVariant = 'primary' | 'outline' | 'quiet' | 'danger';
 
 export type ButtonProps = {
   label: string;
   onPress?: () => void;
-  /** `primary` is the solid white call to action; `quiet` is a muted outline. */
+  /**
+   * `primary` is the solid white call to action, `quiet` a muted outline, and
+   * `danger` a red-outlined destructive action — outlined rather than filled so
+   * it is unmistakable without being the brightest thing on the screen.
+   */
   variant?: ButtonVariant;
   disabled?: boolean;
   /** Fill the row when sitting beside sibling buttons. */
@@ -441,6 +445,7 @@ export function Button({
       style={({ pressed }) => [
         styles.button,
         variant === 'primary' ? styles.buttonPrimary : styles.buttonOutline,
+        variant === 'danger' && styles.buttonDanger,
         fill && styles.buttonFill,
         pressed && styles.pressed,
         disabled && styles.buttonDisabled,
@@ -448,7 +453,15 @@ export function Button({
       ]}>
       <ThemedText
         type="body"
-        themeColor={variant === 'primary' ? 'background' : variant === 'quiet' ? 'textSecondary' : 'text'}
+        themeColor={
+          variant === 'primary'
+            ? 'background'
+            : variant === 'quiet'
+              ? 'textSecondary'
+              : variant === 'danger'
+                ? 'danger'
+                : 'text'
+        }
         style={styles.buttonLabel}>
         {label}
       </ThemedText>
@@ -586,6 +599,9 @@ const styles = StyleSheet.create({
   buttonOutline: {
     borderWidth: 1,
     borderColor: Colors.dark.borderStrong,
+  },
+  buttonDanger: {
+    borderColor: Colors.dark.danger,
   },
   buttonFill: {
     flex: 1,
