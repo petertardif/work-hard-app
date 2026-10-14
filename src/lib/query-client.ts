@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { QueryClient, onlineManager } from '@tanstack/react-query';
 
-import { setCompletion } from '@/lib/api';
+import { createQuote, deleteQuote, setCompletion, updateQuote } from '@/lib/api';
 
 /**
  * Teach TanStack Query what "online" means on a phone. Without this it assumes
@@ -43,6 +43,11 @@ queryClient.setMutationDefaults(['setCompletion'], {
   mutationFn: setCompletion,
 });
 
+// Quote edits queue the same way, so managing the library works on a plane.
+queryClient.setMutationDefaults(['createQuote'], { mutationFn: createQuote });
+queryClient.setMutationDefaults(['updateQuote'], { mutationFn: updateQuote });
+queryClient.setMutationDefaults(['deleteQuote'], { mutationFn: deleteQuote });
+
 export const persister = createAsyncStoragePersister({
   storage: AsyncStorage,
   key: 'work-hard-query-cache',
@@ -58,6 +63,7 @@ export const persistOptions = {
 
 export const queryKeys = {
   profile: ['profile'] as const,
+  quotes: ['quotes'] as const,
   lists: ['lists'] as const,
   runs: ['runs'] as const,
   activeRun: ['runs', 'active'] as const,

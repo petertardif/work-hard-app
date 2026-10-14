@@ -26,9 +26,11 @@ by hand in the SQL editor (Dashboard → SQL Editor → New query → paste → 
 cp .env.example .env
 ```
 
-Fill in `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` from
-Project Settings. Only ever the **anon** key — `EXPO_PUBLIC_` variables are inlined
-into the shipped bundle. Row level security is what actually guards the data.
+Fill in `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, both
+from Dashboard → **Connect**. Only ever the **publishable** key (or the legacy `anon`
+key — both are accepted); never the secret / service_role key. `EXPO_PUBLIC_`
+variables are inlined into the shipped bundle and are readable by anyone. Row level
+security is what actually guards the data.
 
 Without these the app renders a setup notice instead of crashing.
 
@@ -103,17 +105,74 @@ supabase/migrations/      apply by hand in the SQL editor
 - **Failure and victory screens** — not in the design bundle yet; Today shows a
   plain interim banner so the state is never silently wrong.
 - **Onboarding** — not designed.
-- **Settings editing** — timezone, day-ends-at and reminders display but are read-only.
-- **Reminders** — `expo-notifications` not wired up.
-- **Account deletion** — needs a server endpoint with the service-role key.
+- **Account deletion** — the row points at support; no self-service deletion yet.
 
 ## Deviations from the mockups
 
-- **Today gained a nav row.** No mockup shows a way off the Today screen. A slim
-  `LISTS` / `SETTINGS` row in the design's own mono style makes them reachable.
+- **Today gained a nav row.** No mockup shows a way off the Today screen. A list icon
+  and a gear icon in the top corners make Lists and Settings reachable.
 - **The cold open is ~2.3s, not 8.4s.** The design file's keyframes read as a canvas
   demo loop; nobody should wait that long to see their tasks. Same beats, compressed.
   Tune `GLYPH_MS` / `WORD_MS` in `src/components/cold-open.tsx`.
-- **The editor uses ↑/↓ controls, not drag handles.** Same capability, much less
-  machinery. Worth revisiting if reordering turns out to matter.
 - **The task cap is 25, not the mockup's 10.**
+- **Line heights are not transcribed literally.** The mockups use CSS values below
+  their font size (`line-height: .8` on the day numeral). CSS lets a glyph overflow
+  its line box; React Native clips to it. Tightness comes from margins instead — see
+  the note on `Typography.display` in `src/constants/theme.ts`.
+
+## The daily quote
+
+On the first launch of each day the app shows a full-screen quotation before the Today
+screen, dismissed with one tap. Off-switch lives in Settings.
+
+The no-flash guarantee comes from render order in `src/app/_layout.tsx`:
+
+```
+<Stack/>            Today mounts and fetches here, unseen
+<DailyQuoteGate/>   opaque black, mounted before the cold open ends
+<ColdOpen/>         plays on top, then unmounts
+```
+
+The overlay is opaque on its first frame and mounts during the cold open's ~2.3s, so
+there is never a frame where Today is visible. A side effect worth keeping: because the
+overlay waits for a tap, Today's queries have resolved by the time it clears.
+
+Quotes live in the `quotes` table — shared content, readable by any signed-in user and
+writable only from the dashboard. Add or retire quotes there (`active = false` retires
+one without deleting it); no app release needed. The query is cached by the persister,
+so after the first fetch the overlay works offline.
+
+Which day it is comes from the user's own boundary via `api.todayKey`, not device
+midnight, so with a 3am rollover the quote turns over at 3am. The last-shown day key is
+in AsyncStorage under a **per-user** key, so two accounts on one device don't consume
+each other's quote.
+
+The decision rules are pure and tested in `src/lib/daily-quote.test.ts`. Note that
+`hidden` is terminal for a mount: the profile, the stored key and the quote list all
+resolve independently, and without that a late arrival could resurrect a dismissed
+overlay.
+
+## Reminders
+
+Local notifications only, which is what keeps them working in Expo Go — remote push
+would need a development build.
+
+`SchedulableTriggerInputTypes.DAILY` is deliberately **not** used: a repeating trigger
+cannot have one occurrence cancelled, and the reminder has to stay quiet on days you
+have already finished. Instead `src/lib/notifications.ts` lays a rolling 14-day window
+of individually-dated one-off notifications, and `useReminderSync` cancels and re-lays
+it on every foreground, skipping today when today is done. Fourteen is well inside
+iOS's 64-pending ceiling, and if the app goes unopened that long the run has already
+failed.
+
+The reminder fires on **device** local time, not the run's stored timezone — it is a
+buzz on the phone in your pocket, so it should land at the hour on that phone's clock.
+The run's timezone still governs the day boundary.
+
+## Icons
+
+Lucide, via `src/components/icons.ts`. **Import new icons there, not from the
+`lucide-react-native` barrel** — the barrel pulls all 1600 icons into the bundle
+(measured: +2MB of Hermes bytecode), while the per-icon subpath costs only what you
+use. Draw them at `strokeWidth={IconStroke}` so they match the hand-built glyphs in
+`glyph.tsx`.

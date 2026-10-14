@@ -16,6 +16,17 @@ export type DbProfile = {
   day_ends_at: string;
   glyph: GlyphKind;
   reminder_at: string | null;
+  show_daily_quote: boolean;
+  created_at: string;
+};
+
+/** A quote in the signed-in user's own library. */
+export type DbQuote = {
+  id: string;
+  user_id: string;
+  text: string;
+  /** Null for proverbs and anything unsourced; the overlay omits the row. */
+  author: string | null;
   created_at: string;
 };
 

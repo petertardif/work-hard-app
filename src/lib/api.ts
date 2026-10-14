@@ -13,6 +13,7 @@ import type {
   DbList,
   DbListTask,
   DbProfile,
+  DbQuote,
   DbRun,
   ListWithTasks,
 } from '@/lib/database.types';
@@ -73,6 +74,69 @@ export async function updateProfile(patch: Partial<DbProfile>): Promise<DbProfil
   return unwrap(
     await supabase.from('profiles').update(patch).eq('id', auth.user.id).select('*').single(),
   );
+}
+
+// ---------------------------------------------------------------------------
+// Quotes
+// ---------------------------------------------------------------------------
+
+/**
+ * The signed-in user's quote library, newest first.
+ *
+ * Each account owns its own rows — the starter set is copied in at signup — so
+ * RLS scopes this without a filter. Cached by the query persister, which is
+ * what lets the daily overlay work offline.
+ */
+export async function fetchQuotes(): Promise<DbQuote[]> {
+  return unwrap(
+    await supabase.from('quotes').select('*').order('created_at', { ascending: false }),
+  ) as DbQuote[];
+}
+
+export type QuoteInput = {
+  /** Minted client-side so an offline insert has a stable id to replay with. */
+  id: string;
+  text: string;
+  author: string | null;
+};
+
+/**
+ * Adds a quote.
+ *
+ * An upsert rather than an insert so a queued offline write replayed twice is a
+ * no-op instead of a duplicate — the same reasoning as `setCompletion`.
+ */
+export async function createQuote(input: QuoteInput): Promise<void> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw new Error('Not signed in');
+
+  const { error } = await supabase.from('quotes').upsert(
+    {
+      id: input.id,
+      user_id: auth.user.id,
+      text: input.text.trim(),
+      author: input.author?.trim() ? input.author.trim() : null,
+    },
+    { onConflict: 'id' },
+  );
+  if (error) throw new Error(error.message);
+}
+
+export async function updateQuote(input: QuoteInput): Promise<void> {
+  const { error } = await supabase
+    .from('quotes')
+    .update({
+      text: input.text.trim(),
+      author: input.author?.trim() ? input.author.trim() : null,
+    })
+    .eq('id', input.id);
+  if (error) throw new Error(error.message);
+}
+
+/** Idempotent by nature: deleting an already-deleted row affects zero rows. */
+export async function deleteQuote(id: string): Promise<void> {
+  const { error } = await supabase.from('quotes').delete().eq('id', id);
+  if (error) throw new Error(error.message);
 }
 
 // ---------------------------------------------------------------------------

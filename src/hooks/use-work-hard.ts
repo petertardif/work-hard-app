@@ -9,7 +9,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import * as api from '@/lib/api';
-import type { DbCompletion, DbProfile, DbRun, ListWithTasks } from '@/lib/database.types';
+import type {
+  DbCompletion,
+  DbProfile,
+  DbQuote,
+  DbRun,
+  ListWithTasks,
+} from '@/lib/database.types';
 import { queryKeys } from '@/lib/query-client';
 import {
   adjudicate,
@@ -28,6 +34,102 @@ export function useProfile() {
   return useQuery({
     queryKey: queryKeys.profile,
     queryFn: api.fetchProfile,
+  });
+}
+
+/**
+ * Shared quote pool for the daily overlay.
+ *
+ * Long-lived: the content barely changes, and the persisted cache is what makes
+ * the overlay work offline after the first successful fetch.
+ */
+export function useQuotes() {
+  return useQuery({
+    queryKey: queryKeys.quotes,
+    queryFn: api.fetchQuotes,
+    staleTime: 1000 * 60 * 60 * 24,
+  });
+}
+
+/**
+ * Add, edit and delete quotes.
+ *
+ * All three are optimistic and carry a `mutationKey` whose function is
+ * registered in `query-client.ts` — the pairing that lets a write made offline
+ * survive an app restart and replay on reconnect, exactly as task completions do.
+ */
+export function useCreateQuote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationKey: ['createQuote'],
+    mutationFn: api.createQuote,
+    async onMutate(input) {
+      await qc.cancelQueries({ queryKey: queryKeys.quotes });
+      const previous = qc.getQueryData<DbQuote[]>(queryKeys.quotes) ?? [];
+      const optimistic: DbQuote = {
+        id: input.id,
+        user_id: 'pending',
+        text: input.text.trim(),
+        author: input.author?.trim() ? input.author.trim() : null,
+        created_at: new Date().toISOString(),
+      };
+      qc.setQueryData(queryKeys.quotes, [optimistic, ...previous]);
+      return { previous };
+    },
+    onError(_e, _input, context) {
+      if (context) qc.setQueryData(queryKeys.quotes, context.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.quotes }),
+  });
+}
+
+export function useUpdateQuote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationKey: ['updateQuote'],
+    mutationFn: api.updateQuote,
+    async onMutate(input) {
+      await qc.cancelQueries({ queryKey: queryKeys.quotes });
+      const previous = qc.getQueryData<DbQuote[]>(queryKeys.quotes) ?? [];
+      qc.setQueryData(
+        queryKeys.quotes,
+        previous.map((q) =>
+          q.id === input.id
+            ? {
+                ...q,
+                text: input.text.trim(),
+                author: input.author?.trim() ? input.author.trim() : null,
+              }
+            : q,
+        ),
+      );
+      return { previous };
+    },
+    onError(_e, _input, context) {
+      if (context) qc.setQueryData(queryKeys.quotes, context.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.quotes }),
+  });
+}
+
+export function useDeleteQuote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationKey: ['deleteQuote'],
+    mutationFn: api.deleteQuote,
+    async onMutate(id) {
+      await qc.cancelQueries({ queryKey: queryKeys.quotes });
+      const previous = qc.getQueryData<DbQuote[]>(queryKeys.quotes) ?? [];
+      qc.setQueryData(
+        queryKeys.quotes,
+        previous.filter((q) => q.id !== id),
+      );
+      return { previous };
+    },
+    onError(_e, _id, context) {
+      if (context) qc.setQueryData(queryKeys.quotes, context.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.quotes }),
   });
 }
 

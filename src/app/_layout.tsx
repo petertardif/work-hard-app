@@ -20,6 +20,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ColdOpen } from '@/components/cold-open';
+import { DailyQuoteGate } from '@/components/daily-quote';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { MonoLabel } from '@/components/ui-kit';
@@ -81,17 +82,17 @@ function AuthGate() {
   const [introDone, setIntroDone] = useState(false);
 
   const handleIntroDone = useCallback(() => setIntroDone(true), []);
+  const inAuthGroup = segments[0] === '(auth)';
 
   useEffect(() => {
     if (!ready) return;
 
-    const inAuthGroup = segments[0] === '(auth)';
     if (!session && !inAuthGroup) {
       router.replace('/sign-in');
     } else if (session && inAuthGroup) {
       router.replace('/');
     }
-  }, [ready, session, segments, router]);
+  }, [ready, session, inAuthGroup, router]);
 
   return (
     <View style={styles.root}>
@@ -99,6 +100,15 @@ function AuthGate() {
         <Stack.Screen name="(app)" />
         <Stack.Screen name="(auth)" />
       </Stack>
+
+      {/*
+        Order matters. The quote sits *between* the Stack and the cold open, so
+        it is already painted opaque by the time the cold open unmounts — which
+        is what stops the Today screen ever being seen loading. It renders
+        nothing unless this is the user's first launch of the day.
+      */}
+      {!inAuthGroup ? <DailyQuoteGate userId={session?.user.id ?? null} /> : null}
+
       {!introDone || !ready ? <ColdOpen onDone={handleIntroDone} /> : null}
     </View>
   );
@@ -114,8 +124,8 @@ function SetupNotice() {
       </ThemedText>
       <ThemedText type="body" themeColor="textSecondary" style={styles.setupBody}>
         Copy .env.example to .env, fill in EXPO_PUBLIC_SUPABASE_URL and
-        EXPO_PUBLIC_SUPABASE_ANON_KEY from your Supabase project, then restart the dev
-        server with `npx expo start --clear`.
+        EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY from your Supabase project, then restart
+        the dev server with `npx expo start --clear`.
       </ThemedText>
     </Screen>
   );
