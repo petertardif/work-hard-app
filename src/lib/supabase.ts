@@ -3,16 +3,28 @@ import { createClient } from '@supabase/supabase-js';
 import { AppState } from 'react-native';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+/**
+ * The client-side key, under any of the names it travels by.
+ *
+ * `EXPO_PUBLIC_SUPABASE_KEY` is what Supabase's own Connect dialog emits;
+ * `..._PUBLISHABLE_KEY` and `..._ANON_KEY` are accepted too, since Supabase is
+ * mid-way through retiring the `anon` name in favour of the publishable one
+ * (`sb_publishable_…`) and older projects still issue the legacy JWT.
+ */
+const publishableKey =
+  process.env.EXPO_PUBLIC_SUPABASE_KEY ??
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 /**
  * True once the project's credentials are present. The app renders a setup
  * notice instead of a sign-in form when they are missing, which is friendlier
  * than a bundler-time crash on a fresh clone.
  */
-export const isSupabaseConfigured = Boolean(url && anonKey);
+export const isSupabaseConfigured = Boolean(url && publishableKey);
 
-export const supabase = createClient(url ?? 'http://localhost', anonKey ?? 'missing-anon-key', {
+export const supabase = createClient(url ?? 'http://localhost', publishableKey ?? 'missing-key', {
   auth: {
     // Sessions live in AsyncStorage; React Native has no localStorage.
     storage: AsyncStorage,
