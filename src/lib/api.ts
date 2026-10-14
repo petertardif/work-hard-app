@@ -76,6 +76,21 @@ export async function updateProfile(patch: Partial<DbProfile>): Promise<DbProfil
   );
 }
 
+/**
+ * Permanently deletes the signed-in user's account and everything in it.
+ *
+ * App Store Review Guideline 5.1.1(v) requires this to exist inside the app, not
+ * behind a support email.
+ *
+ * The RPC removes the row from `auth.users`; every table cascades from there, so
+ * one delete takes the profile, lists, tasks, runs, completions and quotes with
+ * it. There is no undo and no soft-delete tombstone.
+ */
+export async function deleteAccount(): Promise<void> {
+  const { error } = await supabase.rpc('delete_my_account');
+  if (error) throw new Error(error.message);
+}
+
 // ---------------------------------------------------------------------------
 // Quotes
 // ---------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { deleteAccount as apiDeleteAccount } from '@/lib/api';
 import { queryClient } from '@/lib/query-client';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
@@ -11,6 +12,8 @@ type AuthState = {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Permanent. Required in-app by App Store guideline 5.1.1(v). */
+  deleteAccount: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -74,6 +77,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async signOut() {
         await supabase.auth.signOut();
         // Explicit sign-out is the one place a full wipe is unambiguously right.
+        queryClient.clear();
+      },
+      async deleteAccount() {
+        await apiDeleteAccount();
+        // The session is dead server-side; clear it locally so the gate sends
+        // the user back to sign-in rather than retrying with a stale token.
+        await supabase.auth.signOut();
         queryClient.clear();
       },
     }),

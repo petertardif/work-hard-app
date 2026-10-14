@@ -91,15 +91,7 @@ export default function SettingsScreen() {
           }
         />
         <CardDivider />
-        <DetailRow
-          label="Delete account"
-          onPress={() =>
-            Alert.alert(
-              'Delete account',
-              'To delete your account and everything in it, email support and we will remove it.',
-            )
-          }
-        />
+        <DeleteAccountRow />
       </Card>
 
       <MonoLabel small style={styles.version}>
@@ -361,6 +353,60 @@ function QuoteManagementRow() {
       label="Quote management"
       value={quotes ? String(quotes.length) : undefined}
       onPress={() => router.push('/quotes')}
+    />
+  );
+}
+
+/**
+ * Permanent account deletion.
+ *
+ * Required inside the app by App Store Review Guideline 5.1.1(v) — a support
+ * email does not satisfy it. Two steps rather than one, because it cannot be
+ * undone, but no further than two: Apple also expects deletion to be reachable
+ * rather than buried.
+ */
+function DeleteAccountRow() {
+  const { deleteAccount } = useAuth();
+  const [busy, setBusy] = useState(false);
+
+  function confirm() {
+    Alert.alert(
+      'Delete account?',
+      'This permanently removes your account, every list, your whole run history and all of your quotes. It cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete everything',
+          style: 'destructive',
+          onPress: () =>
+            Alert.alert('Last chance', 'There is no way to recover any of this.', [
+              { text: 'Keep my account', style: 'cancel' },
+              { text: 'Delete', style: 'destructive', onPress: () => void run() },
+            ]),
+        },
+      ],
+    );
+  }
+
+  async function run() {
+    setBusy(true);
+    try {
+      await deleteAccount();
+      // No navigation needed: the auth gate sends us to sign-in once the
+      // session clears.
+    } catch (error) {
+      setBusy(false);
+      Alert.alert(
+        'Could not delete your account',
+        error instanceof Error ? error.message : 'Something went wrong. Please try again.',
+      );
+    }
+  }
+
+  return (
+    <DetailRow
+      label={busy ? 'Deleting\u2026' : 'Delete account'}
+      onPress={busy ? undefined : confirm}
     />
   );
 }

@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Button, Field, MonoLabel } from '@/components/ui-kit';
+import { LegalUrls, LegalUrlsConfigured } from '@/constants/legal';
 import { Colors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/providers/auth';
 
@@ -16,6 +17,9 @@ export default function SignInScreen() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const openPrivacy = () => void Linking.openURL(LegalUrls.privacyPolicy);
+  const openTerms = () => void Linking.openURL(LegalUrls.termsOfService);
 
   const creating = mode === 'signUp';
 
@@ -111,27 +115,26 @@ export default function SignInScreen() {
           </MonoLabel>
         </Pressable>
 
-        <View style={styles.divider}>
-          <View style={styles.rule} />
-          <MonoLabel small>or</MonoLabel>
-          <View style={styles.rule} />
-        </View>
-
         {/*
-          Apple and Google sign-in need native modules and a development build,
-          so they are visible but inert until that phase. See the plan's Phase 5.
+          Email and password only, deliberately. App Store Guideline 4.8 requires
+          an equivalent privacy-focused option alongside any third-party login,
+          so adding Google would oblige us to add Sign in with Apple too. Not
+          offering either keeps 4.8 out of scope entirely.
         */}
-        <View style={styles.oauth}>
-          <Button label="Continue with Apple" variant="outline" disabled />
-          <Button label="Continue with Google" variant="outline" disabled />
-        </View>
-        <MonoLabel small style={styles.oauthNote}>
-          Apple and Google sign-in need a development build
-        </MonoLabel>
 
-        <ThemedText type="small" themeColor="textSecondary" style={styles.terms}>
-          By continuing you accept the Terms and Privacy Policy.
-        </ThemedText>
+        {LegalUrlsConfigured ? (
+          <ThemedText type="small" themeColor="textSecondary" style={styles.terms}>
+            By continuing you accept the{' '}
+            <ThemedText type="small" style={styles.link} onPress={openTerms}>
+              Terms
+            </ThemedText>{' '}
+            and{' '}
+            <ThemedText type="small" style={styles.link} onPress={openPrivacy}>
+              Privacy Policy
+            </ThemedText>
+            .
+          </ThemedText>
+        ) : null}
       </Screen>
     </KeyboardAvoidingView>
   );
@@ -147,14 +150,6 @@ const styles = StyleSheet.create({
   notice: { marginTop: Spacing.three },
   submit: { marginTop: Spacing.three },
   switcher: { marginTop: Spacing.three, textAlign: 'center' },
-  divider: {
-    marginVertical: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-  },
-  rule: { flex: 1, height: 1, backgroundColor: Colors.dark.border },
-  oauth: { gap: Spacing.two },
-  oauthNote: { marginTop: Spacing.two, textAlign: 'center' },
+  link: { textDecorationLine: 'underline' },
   terms: { marginTop: Spacing.five, textAlign: 'center' },
 });
