@@ -4,11 +4,13 @@ import { useCallback, useEffect } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+import { useReminderSync } from '@/hooks/use-reminders';
 import { adjudicateRuns, syncServerClock } from '@/lib/api';
 import { queryKeys } from '@/lib/query-client';
 
 export default function AppLayout() {
   useLaunchAdjudication();
+  useReminderSync();
 
   return (
     <Stack
@@ -19,6 +21,8 @@ export default function AppLayout() {
       }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="settings" options={{ animation: 'slide_from_bottom' }} />
+      {/* Pushed from Settings; keeps the stack default so it slides in from the right. */}
+      <Stack.Screen name="quotes" />
     </Stack>
   );
 }
